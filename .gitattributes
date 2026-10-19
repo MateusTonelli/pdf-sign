@@ -1,2 +1,4 @@
 *.sh text eol=lf
 docker-entrypoint.sh text eol=lf
+*.mjs binary
+frontend/public/pdf.worker.min.mjs binary
