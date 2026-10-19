@@ -12,10 +12,8 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import type { SignatureField } from '../api/types';
 import * as api from '../api/endpoints';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
+// Served from /public — reliable in Vite prod + nginx (avoids broken hashed worker URLs)
+pdfjs.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdf.worker.min.mjs`;
 
 const SIGNER_COLORS = [
   '#0f766e',
@@ -58,7 +56,7 @@ export function SignatureFieldPlacer({
   fields,
   onChange,
 }: Props) {
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfFile, setPdfFile] = useState<Blob | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(1);
@@ -73,29 +71,38 @@ export function SignatureFieldPlacer({
   } | null>(null);
 
   const overlayRef = useRef<HTMLDivElement>(null);
-  const urlRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoadError(null);
+    setPdfFile(null);
     api
       .downloadDocument(documentId)
-      .then((blob) => {
+      .then(async (blob) => {
+        const buffer = await blob.arrayBuffer();
         if (cancelled) return;
-        const url = URL.createObjectURL(blob);
-        if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-        urlRef.current = url;
-        setPdfUrl(url);
+        const bytes = new Uint8Array(buffer);
+        // PDF magic header "%PDF"
+        if (
+          bytes.length < 5 ||
+          bytes[0] !== 0x25 ||
+          bytes[1] !== 0x50 ||
+          bytes[2] !== 0x44 ||
+          bytes[3] !== 0x46
+        ) {
+          throw new Error('Arquivo baixado não é um PDF válido.');
+        }
+        setPdfFile(new Blob([bytes], { type: 'application/pdf' }));
       })
-      .catch(() => {
-        if (!cancelled) setLoadError('Não foi possível carregar o PDF.');
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          const msg =
+            err instanceof Error ? err.message : 'Não foi possível carregar o PDF.';
+          setLoadError(msg);
+        }
       });
     return () => {
       cancelled = true;
-      if (urlRef.current) {
-        URL.revokeObjectURL(urlRef.current);
-        urlRef.current = null;
-      }
     };
   }, [documentId]);
 
@@ -312,24 +319,31 @@ export function SignatureFieldPlacer({
         </div>
       )}
 
-      {!pdfUrl && !loadError && (
+      {!pdfFile && !loadError && (
         <div className="loading-center">
           <div className="spinner" /> Carregando PDF…
         </div>
       )}
 
-      {pdfUrl && (
+      {pdfFile && (
         <div className="placer-stage">
           <div className="placer-canvas-wrap">
             <Document
-              file={pdfUrl}
+              file={pdfFile}
               loading={
                 <div className="loading-center">
                   <div className="spinner" /> Renderizando…
                 </div>
               }
-              onLoadSuccess={(info) => setNumPages(info.numPages)}
-              onLoadError={() => setLoadError('Falha ao renderizar o PDF.')}
+              onLoadSuccess={(info) => {
+                setNumPages(info.numPages);
+                setLoadError(null);
+              }}
+              onLoadError={(err) =>
+                setLoadError(
+                  `Falha ao renderizar o PDF${err?.message ? `: ${err.message}` : '.'}`,
+                )
+              }
             >
               <div className="placer-page">
                 <Page

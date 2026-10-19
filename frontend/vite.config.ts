@@ -12,4 +12,10 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: ['pdfjs-dist'],
+  },
+  build: {
+    chunkSizeWarningLimit: 1600,
+  },
 });
