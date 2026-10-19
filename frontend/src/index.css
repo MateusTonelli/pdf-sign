@@ -768,6 +768,45 @@ table.data-table tbody tr:hover {
   object-fit: contain;
 }
 
+.doc-list-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  background: #fafbfc;
+}
+
+.doc-list-header {
+  gap: var(--space-md);
+  align-items: flex-start;
+}
+
+.doc-signers {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.doc-signer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.doc-signer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
 .page-hero {
   margin-bottom: var(--space-lg);
 }

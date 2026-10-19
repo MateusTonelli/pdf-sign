@@ -65,7 +65,11 @@ public class DocumentService {
 
     public List<DocumentSummaryDto> list(AuthUser authUser) {
         return documentRepository.findByTenantIdOrderByCreatedAtDesc(authUser.getTenantId()).stream()
-                .map(this::toSummary)
+                .map(document -> {
+                    List<DocumentSigner> signers =
+                            documentSignerRepository.findByDocumentIdOrderBySortOrderAsc(document.getId());
+                    return DocumentMapper.toSummary(document, signers, appProperties.getPublicBaseUrl());
+                })
                 .toList();
     }
 
@@ -237,11 +241,7 @@ public class DocumentService {
     private DocumentDetailDto toDetail(Document document) {
         List<DocumentSigner> signers = documentSignerRepository.findByDocumentIdOrderBySortOrderAsc(document.getId());
         List<SignatureField> fields = signatureFieldRepository.findByDocumentId(document.getId());
-        return DocumentMapper.toDetail(document, signers, fields);
-    }
-
-    private DocumentSummaryDto toSummary(Document document) {
-        return DocumentMapper.toSummary(document);
+        return DocumentMapper.toDetail(document, signers, fields, appProperties.getPublicBaseUrl());
     }
 
     private static void validateNormalized(double x, double y, double w, double h) {

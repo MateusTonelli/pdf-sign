@@ -22,9 +22,14 @@ export type DocumentStatus =
 export type SignatureType = 'SIMPLE' | 'CERTIFICATE';
 
 export interface DocumentSigner {
+  id?: string;
   name: string;
   email: string;
+  status?: string;
   signedAt?: string | null;
+  sortOrder?: number;
+  accessToken?: string | null;
+  signUrl?: string | null;
 }
 
 export interface SignatureField {
@@ -44,6 +49,7 @@ export interface DocumentSummary {
   signatureType?: SignatureType;
   createdAt?: string;
   updatedAt?: string;
+  signers?: DocumentSigner[];
 }
 
 export interface DocumentDetail extends DocumentSummary {

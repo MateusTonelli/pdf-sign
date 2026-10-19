@@ -17,7 +17,8 @@ public final class DocumentMapper {
     private DocumentMapper() {
     }
 
-    public static DocumentSummaryDto toSummary(Document document) {
+    public static DocumentSummaryDto toSummary(
+            Document document, List<DocumentSigner> signers, String publicBaseUrl) {
         return new DocumentSummaryDto(
                 document.getId(),
                 document.getTitle(),
@@ -25,21 +26,14 @@ public final class DocumentMapper {
                 document.getStatus(),
                 document.getContentHashSha256(),
                 document.getCreatedAt(),
-                document.getUpdatedAt());
+                document.getUpdatedAt(),
+                toSignerDtos(signers, publicBaseUrl));
     }
 
-    public static DocumentDetailDto toDetail(Document document, List<DocumentSigner> signers, List<SignatureField> fields) {
+    public static DocumentDetailDto toDetail(
+            Document document, List<DocumentSigner> signers, List<SignatureField> fields, String publicBaseUrl) {
         Map<UUID, String> signerEmails =
                 signers.stream().collect(Collectors.toMap(DocumentSigner::getId, DocumentSigner::getEmail));
-        List<SignerDto> signerDtos = signers.stream()
-                .map(s -> new SignerDto(
-                        s.getId(),
-                        s.getName(),
-                        s.getEmail(),
-                        s.getStatus(),
-                        s.getSignedAt(),
-                        s.getSortOrder()))
-                .toList();
         List<SignatureFieldDto> fieldDtos = fields.stream()
                 .map(f -> new SignatureFieldDto(
                         f.getId(),
@@ -58,7 +52,28 @@ public final class DocumentMapper {
                 document.getContentHashSha256(),
                 document.getCreatedAt(),
                 document.getUpdatedAt(),
-                signerDtos,
+                toSignerDtos(signers, publicBaseUrl),
                 fieldDtos);
+    }
+
+    private static List<SignerDto> toSignerDtos(List<DocumentSigner> signers, String publicBaseUrl) {
+        String base = publicBaseUrl == null ? "" : publicBaseUrl.replaceAll("/$", "");
+        return signers.stream()
+                .map(s -> {
+                    String token = s.getAccessToken();
+                    String signUrl = (token != null && !token.isBlank() && !base.isBlank())
+                            ? base + "/sign/" + token
+                            : null;
+                    return new SignerDto(
+                            s.getId(),
+                            s.getName(),
+                            s.getEmail(),
+                            s.getStatus(),
+                            s.getSignedAt(),
+                            s.getSortOrder(),
+                            token,
+                            signUrl);
+                })
+                .toList();
     }
 }

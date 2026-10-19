@@ -5,5 +5,12 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record SignerDto(
-        UUID id, String name, String email, SignerStatus status, Instant signedAt, int sortOrder) {
+        UUID id,
+        String name,
+        String email,
+        SignerStatus status,
+        Instant signedAt,
+        int sortOrder,
+        String accessToken,
+        String signUrl) {
 }
