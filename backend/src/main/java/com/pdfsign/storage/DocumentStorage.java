@@ -31,7 +31,12 @@ public class DocumentStorage {
             throw new IOException("Invalid storage path");
         }
         Files.createDirectories(target.getParent());
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        final MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (Exception e) {
+            throw new IOException("SHA-256 not available", e);
+        }
         try (InputStream in = file.getInputStream();
                 DigestInputStream din = new DigestInputStream(in, digest)) {
             Files.copy(din, target, StandardCopyOption.REPLACE_EXISTING);

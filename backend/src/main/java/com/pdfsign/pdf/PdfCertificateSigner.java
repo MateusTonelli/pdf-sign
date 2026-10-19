@@ -18,11 +18,12 @@ import java.util.List;
 import javax.imageio.ImageIO;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureInterface;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSigProperties;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSignDesigner;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -35,80 +36,78 @@ public class PdfCertificateSigner {
             char[] password,
             String signerName)
             throws IOException {
-        KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        try (InputStream ksIn = new ByteArrayInputStream(pkcs12Bytes)) {
-            keyStore.load(ksIn, password);
-        } catch (Exception e) {
-            throw new IOException("Could not unlock PKCS#12 with the provided password", e);
-        }
-
-        String alias = findKeyAlias(keyStore);
-        if (alias == null) {
-            throw new IOException("No private key entry found in PKCS#12");
-        }
-
-        PrivateKey privateKey;
-        Certificate[] chain;
         try {
-            privateKey = (PrivateKey) keyStore.getKey(alias, password);
-            chain = keyStore.getCertificateChain(alias);
-        } catch (Exception e) {
-            throw new IOException("Could not read private key from PKCS#12", e);
-        }
-
-        if (privateKey == null || chain == null || chain.length == 0) {
-            throw new IOException("PKCS#12 does not contain a signing certificate");
-        }
-
-        SignatureField primary = fields.isEmpty() ? null : fields.get(0);
-        try (PDDocument document = Loader.loadPDF(pdfBytes);
-                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-
-            PDSignature signature = new PDSignature();
-            signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE);
-            signature.setSubFilter(PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED);
-            signature.setName(signerName != null ? signerName : alias);
-            signature.setReason("Document signed via PDF Sign MVP");
-            signature.setLocation("PDF Sign");
-            Calendar cal = Calendar.getInstance();
-            signature.setSignDate(cal);
-
-            SignatureInterface signatureInterface = content -> CmsPdfSigner.signDetached(content, privateKey, chain);
-
-            SignatureOptions options = new SignatureOptions();
-            options.setPreferredSignatureSize(SignatureOptions.DEFAULT_SIGNATURE_SIZE * 2);
-
-            if (primary != null) {
-                int pageIndex = Math.max(0, primary.getPage() - 1);
-                if (pageIndex < document.getNumberOfPages()) {
-                    var page = document.getPage(pageIndex);
-                    PdfCoordinateUtils.PdfRect rect =
-                            PdfCoordinateUtils.toPdfRect(page, primary.getX(), primary.getY(), primary.getWidth(), primary.getHeight());
-                    byte[] appearance = renderAppearance(signerName != null ? signerName : alias, (int) rect.width(), (int) rect.height());
-                    try (InputStream appearanceStream = new ByteArrayInputStream(appearance)) {
-                        PDVisibleSignDesigner designer = new PDVisibleSignDesigner(document, appearanceStream, primary.getPage());
-                        designer.xAxis((int) rect.x()).yAxis((int) rect.y()).zoom(0).adjustForRotation();
-                        PDVisibleSigProperties properties = new PDVisibleSigProperties();
-                        properties.signerName(signature.getName())
-                                .signerLocation(signature.getLocation())
-                                .signatureReason(signature.getReason())
-                                .preferredSize(SignatureOptions.DEFAULT_SIGNATURE_SIZE * 2)
-                                .page(primary.getPage())
-                                .visualSignEnabled(true)
-                                .setPdVisibleSignature(designer);
-                        properties.buildSignature();
-                        signature.setName(properties.getSignerName());
-                        signature.setLocation(properties.getSignerLocation());
-                        signature.setReason(properties.getSignatureReason());
-                        options.setVisualSignature(properties);
-                        options.setPage(pageIndex);
-                    }
-                }
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            try (InputStream ksIn = new ByteArrayInputStream(pkcs12Bytes)) {
+                keyStore.load(ksIn, password);
             }
 
-            document.addSignature(signature, signatureInterface, options);
-            document.saveIncremental(out);
-            options.close();
+            String alias = findKeyAlias(keyStore);
+            if (alias == null) {
+                throw new IOException("No private key entry found in PKCS#12");
+            }
+
+            PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, password);
+            Certificate[] chain = keyStore.getCertificateChain(alias);
+            if (privateKey == null || chain == null || chain.length == 0) {
+                throw new IOException("PKCS#12 does not contain a signing certificate");
+            }
+
+            String displayName = signerName != null && !signerName.isBlank() ? signerName : alias;
+            byte[] withAppearance = stampVisualAppearance(pdfBytes, fields, displayName);
+
+            try (PDDocument document = Loader.loadPDF(withAppearance);
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    SignatureOptions options = new SignatureOptions()) {
+
+                PDSignature signature = new PDSignature();
+                signature.setFilter(PDSignature.FILTER_ADOBE_PPKLITE);
+                signature.setSubFilter(PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED);
+                signature.setName(displayName);
+                signature.setReason("Document signed via PDF Sign MVP");
+                signature.setLocation("PDF Sign");
+                signature.setSignDate(Calendar.getInstance());
+
+                SignatureInterface signatureInterface =
+                        content -> CmsPdfSigner.signDetached(content, privateKey, chain);
+
+                options.setPreferredSignatureSize(SignatureOptions.DEFAULT_SIGNATURE_SIZE * 2);
+                document.addSignature(signature, signatureInterface, options);
+                document.saveIncremental(out);
+                return out.toByteArray();
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("Certificate signing failed: " + e.getMessage(), e);
+        }
+    }
+
+    private static byte[] stampVisualAppearance(byte[] pdfBytes, List<SignatureField> fields, String label)
+            throws IOException {
+        if (fields == null || fields.isEmpty()) {
+            return pdfBytes;
+        }
+        try (PDDocument document = Loader.loadPDF(pdfBytes);
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            for (SignatureField field : fields) {
+                int pageIndex = Math.max(0, field.getPage() - 1);
+                if (pageIndex >= document.getNumberOfPages()) {
+                    continue;
+                }
+                PDPage page = document.getPage(pageIndex);
+                PdfCoordinateUtils.PdfRect rect =
+                        PdfCoordinateUtils.toPdfRect(
+                                page, field.getX(), field.getY(), field.getWidth(), field.getHeight());
+                byte[] appearance = renderAppearance(label, (int) rect.width(), (int) rect.height());
+                PDImageXObject image = PDImageXObject.createFromByteArray(document, appearance, "cert-sig");
+                try (PDPageContentStream cs =
+                        new PDPageContentStream(
+                                document, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
+                    cs.drawImage(image, rect.x(), rect.y(), rect.width(), rect.height());
+                }
+            }
+            document.save(out);
             return out.toByteArray();
         }
     }
@@ -122,8 +121,8 @@ public class PdfCertificateSigner {
         g.setColor(new Color(255, 255, 255, 220));
         g.fillRect(0, 0, w, h);
         g.setColor(Color.BLACK);
-        g.setFont(new Font(Font.SANS_SERIF, Font.ITALIC, Math.min(18, h - 8)));
-        g.drawString("Signed: " + label, 8, h / 2 + 6);
+        g.setFont(new Font(Font.SANS_SERIF, Font.ITALIC, Math.min(18, Math.max(10, h - 8))));
+        g.drawString("Assinado: " + label, 8, h / 2 + 6);
         g.dispose();
         ByteArrayOutputStream png = new ByteArrayOutputStream();
         ImageIO.write(image, "png", png);
