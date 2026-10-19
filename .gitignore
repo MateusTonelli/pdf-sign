@@ -1,4 +1,6 @@
 .env
+.env.coolify.local
+.coolify-app.json
 *.pfx
 *.p12
 .idea/

@@ -125,7 +125,7 @@ export function DocumentWizardPage() {
               signerEmail: s.email,
               ...DEFAULT_FIELD,
             }));
-      setFields(nextFields);
+      setFields(nextFields ?? []);
       setStep(3);
     },
   });
