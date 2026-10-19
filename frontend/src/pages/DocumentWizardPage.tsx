@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as api from '../api/endpoints';
 import type { SignatureField, SignatureType } from '../api/types';
+import { SignatureFieldPlacer } from '../components/SignatureFieldPlacer';
 import { getErrorMessage } from '../utils/format';
 
 const STEPS = [
@@ -14,14 +15,6 @@ const STEPS = [
 ] as const;
 
 type SignerDraft = { name: string; email: string };
-
-const DEFAULT_FIELD = {
-  page: 1,
-  x: 72,
-  y: 72,
-  width: 180,
-  height: 48,
-};
 
 export function DocumentWizardPage() {
   const [searchParams] = useSearchParams();
@@ -118,14 +111,13 @@ export function DocumentWizardPage() {
       return api.updateSigners(documentId, cleaned);
     },
     onSuccess: (doc) => {
-      const nextFields =
-        doc.fields?.length === doc.signers?.length
-          ? doc.fields
-          : (doc.signers ?? []).map((s) => ({
-              signerEmail: s.email,
-              ...DEFAULT_FIELD,
-            }));
-      setFields(nextFields ?? []);
+      const signerEmails = new Set(
+        (doc.signers ?? []).map((s) => s.email.toLowerCase()),
+      );
+      const kept = (doc.fields ?? []).filter((f) =>
+        signerEmails.has(f.signerEmail.toLowerCase()),
+      );
+      setFields(kept);
       setStep(3);
     },
   });
@@ -133,6 +125,18 @@ export function DocumentWizardPage() {
   const saveFieldsMutation = useMutation({
     mutationFn: async () => {
       if (!documentId) throw new Error('Documento não encontrado.');
+      const cleanedSigners = signers
+        .map((s) => ({ name: s.name.trim(), email: s.email.trim().toLowerCase() }))
+        .filter((s) => s.name && s.email);
+      const missing = cleanedSigners.filter(
+        (s) =>
+          !fields.some((f) => f.signerEmail.toLowerCase() === s.email.toLowerCase()),
+      );
+      if (missing.length) {
+        throw new Error(
+          `Posicione a assinatura de: ${missing.map((m) => m.name).join(', ')}`,
+        );
+      }
       return api.updateFields(documentId, fields);
     },
     onSuccess: () => setStep(4),
@@ -167,12 +171,6 @@ export function DocumentWizardPage() {
   function updateSigner(index: number, key: keyof SignerDraft, value: string) {
     setSigners((prev) =>
       prev.map((s, i) => (i === index ? { ...s, [key]: value } : s)),
-    );
-  }
-
-  function updateField(index: number, patch: Partial<SignatureField>) {
-    setFields((prev) =>
-      prev.map((f, i) => (i === index ? { ...f, ...patch } : f)),
     );
   }
 
@@ -451,78 +449,20 @@ export function DocumentWizardPage() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === 3 && documentId && (
           <div className="stack">
-            <h2 className="card-title">Posição dos campos</h2>
-            <p className="muted">
-              Defina página e coordenadas (pontos PDF) de cada campo de assinatura.
-              Valores padrão colocam o campo no canto inferior da página 1.
-            </p>
-            {fields.map((field, index) => (
-              <fieldset className="field-block" key={field.signerEmail}>
-                <legend>{field.signerEmail}</legend>
-                <div className="form-grid form-grid-2">
-                  <div className="form-field">
-                    <label htmlFor={`page-${index}`}>Página</label>
-                    <input
-                      id={`page-${index}`}
-                      type="number"
-                      min={1}
-                      value={field.page}
-                      onChange={(e) =>
-                        updateField(index, { page: Number(e.target.value) || 1 })
-                      }
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label htmlFor={`x-${index}`}>X</label>
-                    <input
-                      id={`x-${index}`}
-                      type="number"
-                      value={field.x}
-                      onChange={(e) =>
-                        updateField(index, { x: Number(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label htmlFor={`y-${index}`}>Y</label>
-                    <input
-                      id={`y-${index}`}
-                      type="number"
-                      value={field.y}
-                      onChange={(e) =>
-                        updateField(index, { y: Number(e.target.value) || 0 })
-                      }
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label htmlFor={`w-${index}`}>Largura</label>
-                    <input
-                      id={`w-${index}`}
-                      type="number"
-                      min={10}
-                      value={field.width}
-                      onChange={(e) =>
-                        updateField(index, { width: Number(e.target.value) || 10 })
-                      }
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label htmlFor={`h-${index}`}>Altura</label>
-                    <input
-                      id={`h-${index}`}
-                      type="number"
-                      min={10}
-                      value={field.height}
-                      onChange={(e) =>
-                        updateField(index, { height: Number(e.target.value) || 10 })
-                      }
-                    />
-                  </div>
-                </div>
-              </fieldset>
-            ))}
+            <h2 className="card-title">Posição das assinaturas</h2>
+            <SignatureFieldPlacer
+              documentId={documentId}
+              signers={signers
+                .map((s) => ({
+                  name: s.name.trim(),
+                  email: s.email.trim().toLowerCase(),
+                }))
+                .filter((s) => s.name && s.email)}
+              fields={fields}
+              onChange={setFields}
+            />
           </div>
         )}
 

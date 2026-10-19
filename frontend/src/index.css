@@ -508,6 +508,165 @@ table.data-table tbody tr:hover {
   padding: 0 var(--space-xs);
 }
 
+.placer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.placer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.placer-hint {
+  margin: 0 0 var(--space-sm);
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+}
+
+.placer-signers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.placer-signer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.placer-signer-chip.active {
+  border-color: var(--chip-color, var(--color-primary));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--chip-color, var(--color-primary)) 25%, transparent);
+}
+
+.placer-signer-chip.placed {
+  background: #f8faf9;
+}
+
+.placer-signer-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--chip-color, var(--color-primary));
+}
+
+.placer-page-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.placer-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.placer-canvas-wrap {
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #e8ecef;
+  padding: var(--space-md);
+}
+
+.placer-page {
+  position: relative;
+  display: inline-block;
+  margin: 0 auto;
+  box-shadow: var(--shadow-md);
+  background: #fff;
+}
+
+.placer-page .react-pdf__Page {
+  display: block;
+}
+
+.placer-overlay {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.placer-box {
+  position: absolute;
+  border: 2px solid var(--color-primary);
+  border-radius: 4px;
+  box-sizing: border-box;
+  cursor: grab;
+  min-width: 24px;
+  min-height: 16px;
+}
+
+.placer-box.active {
+  outline: 2px solid rgba(15, 118, 110, 0.35);
+}
+
+.placer-box.draft {
+  pointer-events: none;
+  background: rgba(15, 118, 110, 0.15);
+  border-style: dashed;
+}
+
+.placer-box-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translateY(-100%);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px 3px 0 0;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.placer-box-remove {
+  position: absolute;
+  right: -0.55rem;
+  top: -0.55rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: none;
+  border-radius: 50%;
+  background: #1a2332;
+  color: #fff;
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.placer-active-hint {
+  margin: 0;
+  text-align: center;
+}
+
+@media (min-width: 900px) {
+  .app-main:has(.placer) {
+    max-width: 800px;
+  }
+}
+
 .canvas-wrap {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
