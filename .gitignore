@@ -1,0 +1,12 @@
+.env
+*.pfx
+*.p12
+.idea/
+.vscode/
+*.iml
+backend/target/
+backend/storage/
+frontend/node_modules/
+frontend/dist/
+.DS_Store
+*.log

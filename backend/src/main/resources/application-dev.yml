@@ -1,0 +1,15 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+  jpa:
+    show-sql: false
+
+app:
+  mail:
+    log-only: true
+
+logging:
+  level:
+    com.pdfsign: DEBUG
+    org.springframework.security: INFO
