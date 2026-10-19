@@ -16,5 +16,8 @@ app:
 
 logging:
   level:
-    com.pdfsign: INFO
+    root: INFO
+    com.pdfsign: DEBUG
     org.springframework.security: WARN
+    org.hibernate.tool.schema: DEBUG
+    org.flywaydb: DEBUG
