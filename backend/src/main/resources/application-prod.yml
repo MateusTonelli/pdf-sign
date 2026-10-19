@@ -4,10 +4,15 @@ spring:
       on-profile: prod
   jpa:
     show-sql: false
+  datasource:
+    hikari:
+      initialization-fail-timeout: -1
+      connection-timeout: 30000
+      maximum-pool-size: 10
 
 app:
   mail:
-    log-only: false
+    log-only: ${APP_MAIL_LOG_ONLY:true}
 
 logging:
   level:
