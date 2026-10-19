@@ -52,6 +52,9 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+    # Published for local MCP / tooling on the LAN (not for public internet)
+    ports:
+      - "5432:5432"
     expose:
       - "5432"
 
