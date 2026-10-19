@@ -25,7 +25,11 @@ public class JwtService {
 
     public JwtService(AppProperties appProperties) {
         this.appProperties = appProperties;
-        byte[] secretBytes = appProperties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8);
+        String secret = appProperties.getJwt().getSecret();
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("APP_JWT_SECRET must be set");
+        }
+        byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
         this.key = Keys.hmacShaKeyFor(padSecret(secretBytes));
     }
 
