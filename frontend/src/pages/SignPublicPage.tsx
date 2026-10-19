@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import * as api from '../api/endpoints';
-import { SignatureCanvas } from '../components/SignatureCanvas';
+import { SignaturePicker } from '../components/SignaturePicker';
 import { downloadBlob, getErrorMessage } from '../utils/format';
 
 export function SignPublicPage() {
@@ -18,6 +18,13 @@ export function SignPublicPage() {
     queryFn: () => api.getSignSession(token!),
     enabled: !!token,
   });
+
+  useEffect(() => {
+    const suggested = sessionQuery.data?.signerName?.trim();
+    if (suggested && !typedName) {
+      setTypedName(suggested);
+    }
+  }, [sessionQuery.data?.signerName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const simpleMutation = useMutation({
     mutationFn: () =>
@@ -56,6 +63,10 @@ export function SignPublicPage() {
     setError(null);
     if (!typedName.trim()) {
       setError('Informe seu nome completo.');
+      return;
+    }
+    if (!signatureImage) {
+      setError('Escolha um estilo, desenhe ou envie uma imagem da assinatura.');
       return;
     }
     simpleMutation.mutate();
@@ -141,7 +152,7 @@ export function SignPublicPage() {
             {!done && !session.alreadySigned && !isCert && (
               <form className="stack" onSubmit={handleSimpleSubmit}>
                 <div className="form-field">
-                  <label htmlFor="typedName">Nome completo (como consta no documento)</label>
+                  <label htmlFor="typedName">Nome completo</label>
                   <input
                     id="typedName"
                     required
@@ -150,12 +161,9 @@ export function SignPublicPage() {
                     placeholder={session.signerName ?? ''}
                   />
                 </div>
-                <div>
-                  <p className="muted" style={{ marginBottom: '0.5rem' }}>
-                    Rubrica manual (opcional)
-                  </p>
-                  <SignatureCanvas onChange={setSignatureImage} />
-                </div>
+
+                <SignaturePicker name={typedName} onChange={setSignatureImage} />
+
                 <button
                   type="submit"
                   className="btn btn-primary"
